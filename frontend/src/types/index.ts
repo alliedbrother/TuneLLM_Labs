@@ -32,9 +32,9 @@ export interface Dataset {
   description?: string;
   format: 'json' | 'jsonl' | 'csv' | 'parquet';
   file_path: string;
-  size_bytes: number;
-  row_count?: number;
-  user_id: number;
+  file_size: number;
+  num_samples?: number;
+  owner_id: number;
   created_at: string;
   updated_at: string;
 }
@@ -71,7 +71,9 @@ export interface JobCreate {
   base_model: string;
   method: TrainingMethod;
   dataset_id: number;
-  config: Record<string, unknown>;
+  node_id?: number;
+  config?: Record<string, unknown>;
+  hyperparameters?: Record<string, unknown>;
 }
 
 export interface JobLog {

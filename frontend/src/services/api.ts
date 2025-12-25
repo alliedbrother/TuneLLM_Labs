@@ -92,10 +92,17 @@ export const authAPI = {
 // Datasets API
 export const datasetsAPI = {
   list: async (page = 1, size = 10): Promise<PaginatedResponse<Dataset>> => {
-    const response = await api.get<PaginatedResponse<Dataset>>('/datasets', {
-      params: { page, size },
+    const response = await api.get<Dataset[]>('/datasets', {
+      params: { skip: (page - 1) * size, limit: size },
     });
-    return response.data;
+    // Backend returns array, wrap in paginated response format
+    return {
+      items: response.data,
+      total: response.data.length,
+      page,
+      size,
+      pages: 1,
+    };
   },
 
   get: async (id: number): Promise<Dataset> => {
@@ -125,29 +132,36 @@ export const datasetsAPI = {
 // Jobs API
 export const jobsAPI = {
   list: async (page = 1, size = 10): Promise<PaginatedResponse<FineTuneJob>> => {
-    const response = await api.get<PaginatedResponse<FineTuneJob>>('/jobs', {
-      params: { page, size },
+    const response = await api.get<FineTuneJob[]>('/finetune-jobs', {
+      params: { skip: (page - 1) * size, limit: size },
     });
-    return response.data;
+    // Backend returns array, wrap in paginated response format
+    return {
+      items: response.data,
+      total: response.data.length,
+      page,
+      size,
+      pages: 1,
+    };
   },
 
   get: async (id: number): Promise<FineTuneJob> => {
-    const response = await api.get<FineTuneJob>(`/jobs/${id}`);
+    const response = await api.get<FineTuneJob>(`/finetune-jobs/${id}`);
     return response.data;
   },
 
   create: async (data: JobCreate): Promise<FineTuneJob> => {
-    const response = await api.post<FineTuneJob>('/jobs', data);
+    const response = await api.post<FineTuneJob>('/finetune-jobs', data);
     return response.data;
   },
 
   cancel: async (id: number): Promise<FineTuneJob> => {
-    const response = await api.post<FineTuneJob>(`/jobs/${id}/cancel`);
+    const response = await api.post<FineTuneJob>(`/finetune-jobs/${id}/cancel`);
     return response.data;
   },
 
   getLogs: async (id: number): Promise<JobLog[]> => {
-    const response = await api.get<JobLog[]>(`/jobs/${id}/logs`);
+    const response = await api.get<JobLog[]>(`/finetune-jobs/${id}/logs`);
     return response.data;
   },
 };
@@ -155,10 +169,17 @@ export const jobsAPI = {
 // Models API
 export const modelsAPI = {
   list: async (page = 1, size = 10): Promise<PaginatedResponse<TrainedModel>> => {
-    const response = await api.get<PaginatedResponse<TrainedModel>>('/models', {
-      params: { page, size },
+    const response = await api.get<TrainedModel[]>('/models', {
+      params: { skip: (page - 1) * size, limit: size },
     });
-    return response.data;
+    // Backend returns array, wrap in paginated response format
+    return {
+      items: response.data,
+      total: response.data.length,
+      page,
+      size,
+      pages: 1,
+    };
   },
 
   get: async (id: number): Promise<TrainedModel> => {
@@ -184,12 +205,12 @@ export const modelsAPI = {
 // Hardware API
 export const hardwareAPI = {
   list: async (): Promise<HardwareNode[]> => {
-    const response = await api.get<HardwareNode[]>('/hardware/nodes');
+    const response = await api.get<HardwareNode[]>('/hardware');
     return response.data;
   },
 
   get: async (id: number): Promise<HardwareNode> => {
-    const response = await api.get<HardwareNode>(`/hardware/nodes/${id}`);
+    const response = await api.get<HardwareNode>(`/hardware/${id}`);
     return response.data;
   },
 };

@@ -1,7 +1,12 @@
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
+import { Zap } from 'lucide-react';
 import { useSignup } from '../../hooks/useApi';
 import type { SignupRequest } from '../../types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface SignupFormData extends SignupRequest {
   confirmPassword: string;
@@ -30,28 +35,26 @@ export default function SignupForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h1 className="text-center text-3xl font-bold text-primary-600">
-            TuneLLM
-          </h1>
-          <h2 className="mt-6 text-center text-2xl font-semibold text-gray-900">
-            Create your account
-          </h2>
-        </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="username" className="label">
-                Username
-              </label>
-              <input
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
+              <Zap className="h-6 w-6 text-primary-foreground" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl">Create an account</CardTitle>
+          <CardDescription>Get started with TuneLLM</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
                 id="username"
                 type="text"
                 autoComplete="username"
-                className="input"
+                placeholder="Enter your username"
                 {...register('username', {
                   required: 'Username is required',
                   minLength: {
@@ -61,21 +64,17 @@ export default function SignupForm() {
                 })}
               />
               {errors.username && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.username.message}
-                </p>
+                <p className="text-sm text-destructive">{errors.username.message}</p>
               )}
             </div>
 
-            <div>
-              <label htmlFor="email" className="label">
-                Email address
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="email">Email address</Label>
+              <Input
                 id="email"
                 type="email"
                 autoComplete="email"
-                className="input"
+                placeholder="name@example.com"
                 {...register('email', {
                   required: 'Email is required',
                   pattern: {
@@ -85,19 +84,17 @@ export default function SignupForm() {
                 })}
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                <p className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
 
-            <div>
-              <label htmlFor="password" className="label">
-                Password
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
                 id="password"
                 type="password"
                 autoComplete="new-password"
-                className="input"
+                placeholder="Create a password"
                 {...register('password', {
                   required: 'Password is required',
                   minLength: {
@@ -107,21 +104,17 @@ export default function SignupForm() {
                 })}
               />
               {errors.password && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.password.message}
-                </p>
+                <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
             </div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="label">
-                Confirm Password
-              </label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
                 id="confirmPassword"
                 type="password"
                 autoComplete="new-password"
-                className="input"
+                placeholder="Confirm your password"
                 {...register('confirmPassword', {
                   required: 'Please confirm your password',
                   validate: (value) =>
@@ -129,29 +122,27 @@ export default function SignupForm() {
                 })}
               />
               {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.confirmPassword.message}
-                </p>
+                <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
               )}
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={signupMutation.isPending}
-            className="w-full btn btn-primary py-3"
-          >
-            {signupMutation.isPending ? 'Creating account...' : 'Create account'}
-          </button>
+            <Button
+              type="submit"
+              disabled={signupMutation.isPending}
+              className="w-full"
+            >
+              {signupMutation.isPending ? 'Creating account...' : 'Create account'}
+            </Button>
 
-          <p className="text-center text-sm text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 hover:text-primary-700">
-              Sign in
-            </Link>
-          </p>
-        </form>
-      </div>
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

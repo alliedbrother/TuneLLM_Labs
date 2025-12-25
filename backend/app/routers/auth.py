@@ -52,8 +52,8 @@ async def signup(user_data: UserCreate, db: AsyncSession = Depends(get_db)) -> U
 @router.post("/auth/login", response_model=Token)
 async def login(user_data: UserLogin, db: AsyncSession = Depends(get_db)) -> dict:
     """Authenticate user and return tokens."""
-    # Find user
-    result = await db.execute(select(User).where(User.username == user_data.username))
+    # Find user by email
+    result = await db.execute(select(User).where(User.email == user_data.email))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(user_data.password, user.hashed_password):

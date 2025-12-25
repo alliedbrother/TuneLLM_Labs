@@ -1,7 +1,20 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, StopIcon } from '@heroicons/react/24/outline';
-import JobStatusBadge from '../components/Jobs/JobStatusBadge';
+import { ArrowLeft, Square, Clock, CheckCircle2, AlertCircle, Activity, Server, Settings } from 'lucide-react';
 import { useJob, useJobLogs, useCancelJob } from '../hooks/useApi';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const statusConfig = {
+  pending: { icon: Clock, color: 'text-warning', bg: 'bg-warning/10', label: 'Pending' },
+  queued: { icon: Clock, color: 'text-warning', bg: 'bg-warning/10', label: 'Queued' },
+  running: { icon: Activity, color: 'text-chart-2', bg: 'bg-chart-2/10', label: 'Running' },
+  completed: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10', label: 'Completed' },
+  failed: { icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Failed' },
+  cancelled: { icon: AlertCircle, color: 'text-muted-foreground', bg: 'bg-muted', label: 'Cancelled' },
+};
 
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -13,7 +26,7 @@ export default function JobDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -21,10 +34,13 @@ export default function JobDetailPage() {
   if (!job) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Job not found</p>
+        <p className="text-muted-foreground">Job not found</p>
       </div>
     );
   }
+
+  const config = statusConfig[job.status] || statusConfig.pending;
+  const StatusIcon = config.icon;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
@@ -35,123 +51,154 @@ export default function JobDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/jobs')}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-          </button>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/jobs')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
-            <div className="flex items-center space-x-3">
-              <h1 className="text-2xl font-bold text-gray-900">{job.name}</h1>
-              <JobStatusBadge status={job.status} />
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold">{job.name}</h1>
+              <Badge className={`${config.bg} ${config.color} border-none`}>
+                <StatusIcon className="mr-1 h-3 w-3" />
+                {config.label}
+              </Badge>
             </div>
-            <p className="mt-1 text-gray-500">{job.base_model}</p>
+            <p className="text-muted-foreground">{job.base_model}</p>
           </div>
         </div>
         {(job.status === 'pending' || job.status === 'running' || job.status === 'queued') && (
-          <button
+          <Button
+            variant="destructive"
             onClick={() => cancelMutation.mutate(job.id)}
             disabled={cancelMutation.isPending}
-            className="btn btn-danger flex items-center"
           >
-            <StopIcon className="w-5 h-5 mr-2" />
+            <Square className="mr-2 h-4 w-4" />
             Cancel Job
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Progress */}
       {job.status === 'running' && job.progress !== undefined && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progress</span>
-            <span className="text-sm text-gray-500">{job.progress}%</span>
-          </div>
-          <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary-500 transition-all duration-500"
-              style={{ width: `${job.progress}%` }}
-            />
-          </div>
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Training Progress</span>
+              <span className="text-sm text-muted-foreground">{job.progress}%</span>
+            </div>
+            <Progress value={job.progress} className="h-2" />
+          </CardContent>
+        </Card>
       )}
 
-      {/* Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Job Details</h2>
-          <dl className="space-y-3">
-            <div className="flex justify-between">
-              <dt className="text-gray-500">Method</dt>
-              <dd className="font-medium">{job.method.toUpperCase()}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500">Created</dt>
-              <dd className="font-medium">{formatDate(job.created_at)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500">Started</dt>
-              <dd className="font-medium">{formatDate(job.started_at)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500">Completed</dt>
-              <dd className="font-medium">{formatDate(job.completed_at)}</dd>
-            </div>
-            {job.node_id && (
+      {/* Details Grid */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Clock className="h-5 w-5 text-primary" />
+              Job Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-4">
               <div className="flex justify-between">
-                <dt className="text-gray-500">Node</dt>
-                <dd className="font-medium">Node #{job.node_id}</dd>
+                <dt className="text-muted-foreground">Method</dt>
+                <dd>
+                  <Badge variant="secondary">{job.method.toUpperCase()}</Badge>
+                </dd>
               </div>
-            )}
-          </dl>
-        </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Created</dt>
+                <dd className="font-medium">{formatDate(job.created_at)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Started</dt>
+                <dd className="font-medium">{formatDate(job.started_at)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Completed</dt>
+                <dd className="font-medium">{formatDate(job.completed_at)}</dd>
+              </div>
+              {job.node_id && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground flex items-center gap-2">
+                    <Server className="h-4 w-4" />
+                    Node
+                  </dt>
+                  <dd className="font-medium">Node #{job.node_id}</dd>
+                </div>
+              )}
+            </dl>
+          </CardContent>
+        </Card>
 
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Configuration</h2>
-          <pre className="bg-gray-50 p-4 rounded-lg text-sm overflow-x-auto">
-            {JSON.stringify(job.config, null, 2)}
-          </pre>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Settings className="h-5 w-5 text-primary" />
+              Configuration
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[200px]">
+              <pre className="bg-muted p-4 rounded-lg text-sm font-mono overflow-x-auto">
+                {JSON.stringify(job.config, null, 2)}
+              </pre>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Error Message */}
       {job.error_message && (
-        <div className="card bg-red-50 border-red-200">
-          <h2 className="text-lg font-semibold text-red-800 mb-2">Error</h2>
-          <p className="text-red-700">{job.error_message}</p>
-        </div>
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Error
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-destructive">{job.error_message}</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Logs */}
-      <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Logs</h2>
-        <div className="bg-gray-900 rounded-lg p-4 h-96 overflow-y-auto font-mono text-sm">
-          {logs?.length ? (
-            logs.map((log) => (
-              <div key={log.id} className="flex">
-                <span className="text-gray-500 mr-4 shrink-0">
-                  {new Date(log.timestamp).toLocaleTimeString()}
-                </span>
-                <span
-                  className={
-                    log.level === 'error'
-                      ? 'text-red-400'
-                      : log.level === 'warning'
-                      ? 'text-yellow-400'
-                      : 'text-gray-300'
-                  }
-                >
-                  {log.message}
-                </span>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-500">No logs available</p>
-          )}
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Training Logs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-96 rounded-lg bg-card border border-border">
+            <div className="p-4 font-mono text-sm">
+              {logs?.length ? (
+                logs.map((log) => (
+                  <div key={log.id} className="flex py-0.5">
+                    <span className="text-muted-foreground mr-4 shrink-0">
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
+                    <span
+                      className={
+                        log.level === 'error'
+                          ? 'text-destructive'
+                          : log.level === 'warning'
+                          ? 'text-warning'
+                          : 'text-foreground'
+                      }
+                    >
+                      {log.message}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground">No logs available</p>
+              )}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 }

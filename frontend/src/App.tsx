@@ -9,10 +9,12 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import DatasetsPage from './pages/DatasetsPage';
+import FineTuningPage from './pages/FineTuningPage';
 import JobsPage from './pages/JobsPage';
 import JobDetailPage from './pages/JobDetailPage';
 import ModelsPage from './pages/ModelsPage';
 import HardwarePage from './pages/HardwarePage';
+import PlaygroundPage from './pages/PlaygroundPage';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,10 +46,12 @@ function App() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="datasets" element={<DatasetsPage />} />
+        <Route path="fine-tuning" element={<FineTuningPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="jobs/:jobId" element={<JobDetailPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="hardware" element={<HardwarePage />} />
+        <Route path="playground" element={<PlaygroundPage />} />
       </Route>
 
       {/* Catch all */}

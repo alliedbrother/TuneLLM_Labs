@@ -7,10 +7,17 @@ import type { LoginRequest, SignupRequest, DatasetCreate, JobCreate } from '../t
 // Auth hooks
 export function useLogin() {
   const login = useAuthStore((state) => state.login);
+  const setTokens = useAuthStore((state) => state.setTokens);
 
   return useMutation({
     mutationFn: async (data: LoginRequest) => {
+      // First, get tokens from login
       const authResponse = await authAPI.login(data);
+
+      // Store tokens immediately so the next API call can use them
+      setTokens(authResponse.access_token, authResponse.refresh_token);
+
+      // Now fetch user with the token available
       const user = await authAPI.me();
       return { authResponse, user };
     },

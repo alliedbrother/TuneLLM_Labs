@@ -1,12 +1,22 @@
-import { CubeIcon, RocketLaunchIcon, StopIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { Link } from 'react-router-dom';
+import { Box, Rocket, Square, Trash2, Power, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { useModels, useDeployModel, useUndeployModel, useDeleteModel } from '../hooks/useApi';
 import type { TrainedModel, ModelStatus } from '../types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-const statusStyles: Record<ModelStatus, string> = {
-  training: 'bg-yellow-100 text-yellow-700',
-  ready: 'bg-green-100 text-green-700',
-  deployed: 'bg-blue-100 text-blue-700',
-  failed: 'bg-red-100 text-red-700',
+const statusStyles: Record<ModelStatus, { bg: string; text: string }> = {
+  training: { bg: 'bg-warning/10', text: 'text-warning' },
+  ready: { bg: 'bg-secondary', text: 'text-secondary-foreground' },
+  deployed: { bg: 'bg-success/10', text: 'text-success' },
+  failed: { bg: 'bg-destructive/10', text: 'text-destructive' },
 };
 
 export default function ModelsPage() {
@@ -18,109 +28,125 @@ export default function ModelsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Trained Models</h1>
-        <p className="mt-1 text-gray-500">
-          Manage and deploy your fine-tuned models
-        </p>
+        <h1 className="text-2xl font-bold">Model Registry</h1>
+        <p className="text-muted-foreground">Manage and deploy your fine-tuned models</p>
       </div>
 
       {isLoading ? (
-        <div className="card text-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto" />
+        <div className="text-center py-12">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
         </div>
       ) : data?.items.length ? (
-        <div className="grid gap-4">
-          {data.items.map((model: TrainedModel) => (
-            <div key={model.id} className="card">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-primary-50 rounded-lg">
-                    <CubeIcon className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">{model.name}</h3>
-                    <p className="text-sm text-gray-500">
-                      Based on {model.base_model}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[model.status]}`}
-                >
-                  {model.status.charAt(0).toUpperCase() + model.status.slice(1)}
-                </span>
-              </div>
-
-              {/* Metrics */}
-              {model.metrics && Object.keys(model.metrics).length > 0 && (
-                <div className="mt-4 flex space-x-6">
-                  {Object.entries(model.metrics).map(([key, value]) => (
-                    <div key={key}>
-                      <span className="text-sm text-gray-500">{key}</span>
-                      <p className="font-medium">
-                        {typeof value === 'number' ? value.toFixed(4) : value}
-                      </p>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {data.items.map((model: TrainedModel) => {
+            const style = statusStyles[model.status];
+            return (
+              <Card key={model.id} className="group">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Box className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{model.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                          {model.base_model}
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {model.status !== 'deployed' && (
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => deleteMutation.mutate(model.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Metrics */}
+                  {model.metrics && Object.keys(model.metrics).length > 0 && (
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {Object.entries(model.metrics).slice(0, 4).map(([key, value]) => (
+                        <div key={key}>
+                          <p className="text-muted-foreground">{key}</p>
+                          <p className="font-mono font-medium">
+                            {typeof value === 'number' ? value.toFixed(4) : value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-              {/* Endpoint URL */}
-              {model.endpoint_url && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700">
-                    <span className="font-medium">Endpoint:</span>{' '}
-                    <code className="bg-blue-100 px-1 rounded">
-                      {model.endpoint_url}
-                    </code>
-                  </p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="mt-4 flex justify-end space-x-3">
-                {model.status === 'ready' && (
-                  <button
-                    onClick={() => deployMutation.mutate(model.id)}
-                    disabled={deployMutation.isPending}
-                    className="btn btn-primary flex items-center text-sm"
-                  >
-                    <RocketLaunchIcon className="w-4 h-4 mr-1" />
-                    Deploy
-                  </button>
-                )}
-                {model.status === 'deployed' && (
-                  <button
-                    onClick={() => undeployMutation.mutate(model.id)}
-                    disabled={undeployMutation.isPending}
-                    className="btn btn-secondary flex items-center text-sm"
-                  >
-                    <StopIcon className="w-4 h-4 mr-1" />
-                    Undeploy
-                  </button>
-                )}
-                {model.status !== 'deployed' && (
-                  <button
-                    onClick={() => deleteMutation.mutate(model.id)}
-                    disabled={deleteMutation.isPending}
-                    className="btn btn-danger flex items-center text-sm"
-                  >
-                    <TrashIcon className="w-4 h-4 mr-1" />
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    {model.status === 'deployed' ? (
+                      <>
+                        <Badge className={`${style.bg} ${style.text} border-none`}>
+                          <Power className="mr-1 h-3 w-3" />
+                          Deployed
+                        </Badge>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link to="/playground">
+                              <MessageSquare className="mr-1 h-3 w-3" />
+                              Test
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => undeployMutation.mutate(model.id)}
+                            disabled={undeployMutation.isPending}
+                          >
+                            <Square className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Badge variant="secondary" className={`${style.bg} ${style.text} border-none`}>
+                          {model.status.charAt(0).toUpperCase() + model.status.slice(1)}
+                        </Badge>
+                        {model.status === 'ready' && (
+                          <Button
+                            size="sm"
+                            onClick={() => deployMutation.mutate(model.id)}
+                            disabled={deployMutation.isPending}
+                          >
+                            <Rocket className="mr-1 h-3 w-3" />
+                            Deploy
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       ) : (
-        <div className="card text-center py-12">
-          <CubeIcon className="w-12 h-12 mx-auto text-gray-400" />
-          <p className="mt-4 text-gray-500">No trained models yet</p>
-          <p className="text-sm text-gray-400">
-            Complete a training job to see your models here
-          </p>
-        </div>
+        <Card>
+          <CardContent className="text-center py-12">
+            <Box className="w-12 h-12 mx-auto text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground">No trained models yet</p>
+            <p className="text-sm text-muted-foreground">
+              Complete a training job to see your models here
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

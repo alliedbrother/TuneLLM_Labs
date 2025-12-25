@@ -1,13 +1,28 @@
 import { Link } from 'react-router-dom';
-import { CpuChipIcon, ClockIcon } from '@heroicons/react/24/outline';
-import JobStatusBadge from './JobStatusBadge';
+import { Clock, Activity, CheckCircle2, AlertCircle, ArrowUpRight } from 'lucide-react';
 import type { FineTuneJob } from '../../types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+
+const statusConfig = {
+  pending: { icon: Clock, color: 'text-warning', bg: 'bg-warning/10', label: 'Pending' },
+  queued: { icon: Clock, color: 'text-warning', bg: 'bg-warning/10', label: 'Queued' },
+  running: { icon: Activity, color: 'text-chart-2', bg: 'bg-chart-2/10', label: 'Running' },
+  completed: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10', label: 'Completed' },
+  failed: { icon: AlertCircle, color: 'text-destructive', bg: 'bg-destructive/10', label: 'Failed' },
+  cancelled: { icon: AlertCircle, color: 'text-muted-foreground', bg: 'bg-muted', label: 'Cancelled' },
+};
 
 interface JobCardProps {
   job: FineTuneJob;
 }
 
 export default function JobCard({ job }: JobCardProps) {
+  const config = statusConfig[job.status] || statusConfig.pending;
+  const StatusIcon = config.icon;
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -18,45 +33,38 @@ export default function JobCard({ job }: JobCardProps) {
   };
 
   return (
-    <Link
-      to={`/jobs/${job.id}`}
-      className="block card hover:shadow-md transition-shadow"
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-primary-50 rounded-lg">
-            <CpuChipIcon className="w-5 h-5 text-primary-600" />
+    <Card className="group hover:border-primary/50 transition-colors">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          <div className={`rounded-full p-2 ${config.bg}`}>
+            <StatusIcon className={`h-4 w-4 ${config.color}`} />
           </div>
-          <div>
-            <h3 className="font-medium text-gray-900">{job.name}</h3>
-            <p className="text-sm text-gray-500">{job.base_model}</p>
-          </div>
-        </div>
-        <JobStatusBadge status={job.status} />
-      </div>
-
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-        <div className="flex items-center space-x-4">
-          <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-            {job.method.toUpperCase()}
-          </span>
-          {job.progress !== undefined && job.status === 'running' && (
-            <div className="flex items-center">
-              <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary-500 transition-all"
-                  style={{ width: `${job.progress}%` }}
-                />
-              </div>
-              <span className="ml-2">{job.progress}%</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium truncate">{job.name}</p>
+              <Badge variant="secondary" className="text-xs">
+                {job.method.toUpperCase()}
+              </Badge>
             </div>
-          )}
+            <p className="text-sm text-muted-foreground">
+              {job.base_model} • {formatDate(job.created_at)}
+            </p>
+            {job.status === 'running' && job.progress !== undefined && (
+              <Progress value={job.progress} className="mt-2 h-1" />
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge className={`${config.bg} ${config.color} border-none`}>
+              {config.label}
+            </Badge>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to={`/jobs/${job.id}`}>
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center">
-          <ClockIcon className="w-4 h-4 mr-1" />
-          {formatDate(job.created_at)}
-        </div>
-      </div>
-    </Link>
+      </CardContent>
+    </Card>
   );
 }

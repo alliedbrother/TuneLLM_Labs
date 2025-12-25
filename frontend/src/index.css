@@ -2,10 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles */
 @layer base {
+  :root {
+    --background: oklch(0.13 0.01 260);
+    --foreground: oklch(0.98 0 0);
+    --card: oklch(0.16 0.01 260);
+    --card-foreground: oklch(0.98 0 0);
+    --popover: oklch(0.16 0.01 260);
+    --popover-foreground: oklch(0.98 0 0);
+    --primary: oklch(0.65 0.2 280);
+    --primary-foreground: oklch(0.98 0 0);
+    --secondary: oklch(0.22 0.01 260);
+    --secondary-foreground: oklch(0.98 0 0);
+    --muted: oklch(0.22 0.01 260);
+    --muted-foreground: oklch(0.65 0 0);
+    --accent: oklch(0.75 0.15 165);
+    --accent-foreground: oklch(0.13 0.01 260);
+    --destructive: oklch(0.55 0.22 25);
+    --destructive-foreground: oklch(0.98 0 0);
+    --border: oklch(0.28 0.01 260);
+    --input: oklch(0.22 0.01 260);
+    --ring: oklch(0.65 0.2 280);
+    --chart-1: oklch(0.65 0.2 280);
+    --chart-2: oklch(0.75 0.15 165);
+    --chart-3: oklch(0.7 0.18 50);
+    --chart-4: oklch(0.6 0.2 200);
+    --chart-5: oklch(0.55 0.22 25);
+    --radius: 0.5rem;
+    --sidebar: oklch(0.1 0.01 260);
+    --sidebar-foreground: oklch(0.98 0 0);
+    --sidebar-primary: oklch(0.65 0.2 280);
+    --sidebar-primary-foreground: oklch(0.98 0 0);
+    --sidebar-accent: oklch(0.22 0.01 260);
+    --sidebar-accent-foreground: oklch(0.98 0 0);
+    --sidebar-border: oklch(0.28 0.01 260);
+    --sidebar-ring: oklch(0.65 0.2 280);
+    --success: oklch(0.75 0.15 165);
+    --success-foreground: oklch(0.13 0.01 260);
+    --warning: oklch(0.8 0.15 85);
+    --warning-foreground: oklch(0.13 0.01 260);
+  }
+
+  * {
+    @apply border-border;
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-background text-foreground antialiased;
   }
 }
 
@@ -15,27 +58,15 @@
   }
 
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 text-gray-900 hover:bg-gray-300;
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
   }
 
   .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700;
-  }
-
-  .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
-  }
-
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors;
-  }
-
-  .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
   }
 }
 

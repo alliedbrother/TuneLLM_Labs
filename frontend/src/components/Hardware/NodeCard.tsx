@@ -1,15 +1,12 @@
-import {
-  ServerIcon,
-  CpuChipIcon,
-  CircleStackIcon,
-} from '@heroicons/react/24/outline';
+import { Server, Cpu, HardDrive, Activity } from 'lucide-react';
 import type { HardwareNode, NodeStatus } from '../../types';
+import { Badge } from '@/components/ui/badge';
 
-const statusStyles: Record<NodeStatus, string> = {
-  online: 'bg-green-100 text-green-700',
-  offline: 'bg-gray-100 text-gray-500',
-  busy: 'bg-blue-100 text-blue-700',
-  error: 'bg-red-100 text-red-700',
+const statusStyles: Record<NodeStatus, { bg: string; color: string; dot?: string }> = {
+  online: { bg: 'bg-success/10', color: 'text-success', dot: 'bg-success' },
+  offline: { bg: 'bg-muted', color: 'text-muted-foreground' },
+  busy: { bg: 'bg-chart-2/10', color: 'text-chart-2', dot: 'bg-chart-2' },
+  error: { bg: 'bg-destructive/10', color: 'text-destructive' },
 };
 
 interface NodeCardProps {
@@ -17,59 +14,54 @@ interface NodeCardProps {
 }
 
 export default function NodeCard({ node }: NodeCardProps) {
+  const style = statusStyles[node.status];
+
   return (
-    <div className="card">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gray-100 rounded-lg">
-            <ServerIcon className="w-5 h-5 text-gray-600" />
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-muted rounded-lg">
+            <Server className="h-5 w-5 text-muted-foreground" />
           </div>
           <div>
-            <h3 className="font-medium text-gray-900">{node.name}</h3>
-            <p className="text-sm text-gray-500">{node.gpu_type || 'No GPU'}</p>
+            <h3 className="font-medium">{node.name}</h3>
+            <p className="text-sm text-muted-foreground">{node.gpu_type || 'No GPU'}</p>
           </div>
         </div>
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[node.status]}`}
-        >
-          {node.status === 'online' && (
-            <span className="w-2 h-2 mr-1.5 bg-green-500 rounded-full" />
-          )}
+        <Badge className={`${style.bg} ${style.color} border-none`}>
+          {style.dot && <span className={`w-2 h-2 mr-1.5 ${style.dot} rounded-full`} />}
           {node.status.charAt(0).toUpperCase() + node.status.slice(1)}
-        </span>
+        </Badge>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-        <div className="flex items-center">
-          <CpuChipIcon className="w-4 h-4 mr-2 text-gray-400" />
-          <div>
-            <p className="text-gray-500">GPUs</p>
+      <div className="mt-4 grid grid-cols-3 gap-4">
+        <div className="flex items-center gap-2">
+          <Cpu className="h-4 w-4 text-muted-foreground" />
+          <div className="text-sm">
+            <p className="text-muted-foreground">GPUs</p>
             <p className="font-medium">{node.gpu_count}</p>
           </div>
         </div>
-        <div className="flex items-center">
-          <CircleStackIcon className="w-4 h-4 mr-2 text-gray-400" />
-          <div>
-            <p className="text-gray-500">RAM</p>
+        <div className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-muted-foreground" />
+          <div className="text-sm">
+            <p className="text-muted-foreground">RAM</p>
             <p className="font-medium">{node.ram_gb.toFixed(0)} GB</p>
           </div>
         </div>
-        <div className="flex items-center">
-          <CircleStackIcon className="w-4 h-4 mr-2 text-gray-400" />
-          <div>
-            <p className="text-gray-500">VRAM</p>
-            <p className="font-medium">
-              {node.gpu_memory_gb?.toFixed(0) || '-'} GB
-            </p>
+        <div className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-muted-foreground" />
+          <div className="text-sm">
+            <p className="text-muted-foreground">VRAM</p>
+            <p className="font-medium">{node.gpu_memory_gb?.toFixed(0) || '-'} GB</p>
           </div>
         </div>
       </div>
 
       {node.current_job_id && (
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-700">
-            Running job #{node.current_job_id}
-          </p>
+        <div className="mt-4 flex items-center gap-2 p-3 bg-chart-2/10 rounded-lg">
+          <Activity className="h-4 w-4 text-chart-2" />
+          <p className="text-sm text-chart-2">Running job #{node.current_job_id}</p>
         </div>
       )}
     </div>

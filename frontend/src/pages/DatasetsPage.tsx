@@ -1,10 +1,38 @@
 import { useState } from 'react';
-import { PlusIcon, TrashIcon, CircleStackIcon } from '@heroicons/react/24/outline';
+import { Plus, Trash2, Database, Upload, FileText, MoreHorizontal } from 'lucide-react';
 import { useDatasets, useCreateDataset, useDeleteDataset } from '../hooks/useApi';
 import type { Dataset } from '../types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function DatasetsPage() {
-  const [isUploading, setIsUploading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -25,7 +53,7 @@ export default function DatasetsPage() {
     setName('');
     setDescription('');
     setFile(null);
-    setIsUploading(false);
+    setIsDialogOpen(false);
   };
 
   const formatBytes = (bytes: number) => {
@@ -40,114 +68,147 @@ export default function DatasetsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Datasets</h1>
-          <p className="mt-1 text-gray-500">Manage your training datasets</p>
+          <h1 className="text-2xl font-bold">Datasets</h1>
+          <p className="text-muted-foreground">Manage your training datasets</p>
         </div>
-        <button
-          onClick={() => setIsUploading(true)}
-          className="btn btn-primary flex items-center"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Upload Dataset
-        </button>
-      </div>
-
-      {/* Upload Modal */}
-      {isUploading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">Upload Dataset</h2>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Dataset
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Upload Dataset</DialogTitle>
+              <DialogDescription>Add a new dataset for fine-tuning your models</DialogDescription>
+            </DialogHeader>
             <form onSubmit={handleUpload} className="space-y-4">
-              <div>
-                <label className="label">Name</label>
-                <input
-                  type="text"
-                  className="input"
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  placeholder="Dataset name"
                   required
                 />
               </div>
-              <div>
-                <label className="label">Description (optional)</label>
-                <textarea
-                  className="input"
-                  rows={3}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description (optional)</Label>
+                <Textarea
+                  id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Brief description of the dataset"
+                  rows={3}
                 />
               </div>
-              <div>
-                <label className="label">File (JSON, JSONL, CSV, Parquet)</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="file">File (JSON, JSONL, CSV, Parquet)</Label>
+                <Input
+                  id="file"
                   type="file"
                   accept=".json,.jsonl,.csv,.parquet"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="w-full"
                   required
                 />
               </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsUploading(false)}
-                  className="btn btn-secondary"
-                >
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="btn btn-primary"
-                >
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending}>
                   {createMutation.isPending ? 'Uploading...' : 'Upload'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
+      </div>
 
-      {/* Datasets List */}
-      {isLoading ? (
-        <div className="card text-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full mx-auto" />
-        </div>
-      ) : data?.items.length ? (
-        <div className="grid gap-4">
-          {data.items.map((dataset: Dataset) => (
-            <div key={dataset.id} className="card flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-primary-50 rounded-lg">
-                  <CircleStackIcon className="w-5 h-5 text-primary-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">{dataset.name}</h3>
-                  <p className="text-sm text-gray-500">
-                    {dataset.format.toUpperCase()} - {formatBytes(dataset.size_bytes)}
-                    {dataset.row_count && ` - ${dataset.row_count.toLocaleString()} rows`}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => deleteMutation.mutate(dataset.id)}
-                disabled={deleteMutation.isPending}
-                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <TrashIcon className="w-5 h-5" />
-              </button>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">All Datasets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="card text-center py-12">
-          <CircleStackIcon className="w-12 h-12 mx-auto text-gray-400" />
-          <p className="mt-4 text-gray-500">No datasets yet</p>
-          <p className="text-sm text-gray-400">
-            Upload your first dataset to start fine-tuning
-          </p>
-        </div>
-      )}
+          ) : data?.items.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Format</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead>Rows</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.items.map((dataset: Dataset) => (
+                  <TableRow key={dataset.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <FileText className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{dataset.name}</p>
+                          {dataset.description && (
+                            <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                              {dataset.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{dataset.format.toUpperCase()}</Badge>
+                    </TableCell>
+                    <TableCell>{formatBytes(dataset.file_size)}</TableCell>
+                    <TableCell>{dataset.num_samples?.toLocaleString() || '-'}</TableCell>
+                    <TableCell>{new Date(dataset.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => deleteMutation.mutate(dataset.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-12">
+              <Database className="w-12 h-12 mx-auto text-muted-foreground" />
+              <p className="mt-4 text-muted-foreground">No datasets yet</p>
+              <p className="text-sm text-muted-foreground">
+                Upload your first dataset to start fine-tuning
+              </p>
+              <Button className="mt-4" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Upload Dataset
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
