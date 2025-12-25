@@ -79,14 +79,26 @@ export default function JobDetailPage() {
       </div>
 
       {/* Progress */}
-      {job.status === 'running' && job.progress !== undefined && (
+      {job.status === 'running' && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Training Progress</span>
-              <span className="text-sm text-muted-foreground">{job.progress}%</span>
+              <span className="text-sm text-muted-foreground">
+                Epoch {job.current_epoch}/{job.total_epochs}
+                {job.total_steps && ` • Step ${job.current_step}/${job.total_steps}`}
+              </span>
             </div>
-            <Progress value={job.progress} className="h-2" />
+            <Progress
+              value={job.total_steps ? (job.current_step / job.total_steps) * 100 : (job.current_epoch / job.total_epochs) * 100}
+              className="h-2"
+            />
+            {(job.train_loss !== undefined || job.eval_loss !== undefined) && (
+              <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                {job.train_loss !== undefined && <span>Train Loss: {job.train_loss.toFixed(4)}</span>}
+                {job.eval_loss !== undefined && <span>Eval Loss: {job.eval_loss.toFixed(4)}</span>}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -118,7 +130,7 @@ export default function JobDetailPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Completed</dt>
-                <dd className="font-medium">{formatDate(job.completed_at)}</dd>
+                <dd className="font-medium">{formatDate(job.finished_at)}</dd>
               </div>
               {job.node_id && (
                 <div className="flex justify-between">

@@ -52,22 +52,41 @@ export default function FineTuningPage() {
 
   const handleLaunchJob = async () => {
     try {
-      await createJobMutation.mutateAsync({
-        name: jobName || `${selectedModel}-${selectedMethod}-${Date.now()}`,
+      const jobName_ = jobName || `${selectedModel}-${selectedMethod}-${Date.now()}`;
+
+      // Build the config object matching backend's JobConfig structure
+      const config: import('../types').JobConfig = {
+        run_name: jobName_,
         base_model: selectedModel,
         method: selectedMethod,
-        dataset_id: parseInt(selectedDataset),
-        node_id: parseInt(selectedNode),
-        hyperparameters: {
-          learning_rate: learningRate[0],
+        training: {
           epochs: epochs[0],
           batch_size: batchSize[0],
-          gradient_accumulation_steps: gradientAccum[0],
-          lora_r: loraRank[0],
-          lora_alpha: loraAlpha[0],
+          learning_rate: learningRate[0],
           gradient_checkpointing: useGradientCheckpoint,
-          fp16: useFp16,
+          mixed_precision: useFp16 ? 'fp16' : 'no',
         },
+      };
+
+      // Add LoRA/QLoRA config if applicable
+      if (selectedMethod === 'lora') {
+        config.lora = {
+          r: loraRank[0],
+          alpha: loraAlpha[0],
+        };
+      } else if (selectedMethod === 'qlora') {
+        config.qlora = {
+          r: loraRank[0],
+          alpha: loraAlpha[0],
+          bits: 4,
+        };
+      }
+
+      await createJobMutation.mutateAsync({
+        name: jobName_,
+        dataset_id: parseInt(selectedDataset),
+        node_id: selectedNode ? parseInt(selectedNode) : undefined,
+        config,
       });
       toast.success('Job created successfully!');
       navigate('/jobs');

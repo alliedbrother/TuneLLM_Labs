@@ -30,6 +30,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_superuser: bool
     created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 

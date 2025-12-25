@@ -62,7 +62,12 @@ export default function JobsPage() {
                       <p className="text-sm text-muted-foreground">
                         {job.base_model} • Started {new Date(job.created_at).toLocaleDateString()}
                       </p>
-                      {job.status === 'running' && <Progress value={job.progress || 0} className="mt-2 h-1" />}
+                      {job.status === 'running' && (
+                        <Progress
+                          value={job.total_steps ? (job.current_step / job.total_steps) * 100 : (job.current_epoch / job.total_epochs) * 100}
+                          className="mt-2 h-1"
+                        />
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <Badge

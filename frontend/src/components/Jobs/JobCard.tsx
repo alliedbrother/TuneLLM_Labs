@@ -49,8 +49,11 @@ export default function JobCard({ job }: JobCardProps) {
             <p className="text-sm text-muted-foreground">
               {job.base_model} • {formatDate(job.created_at)}
             </p>
-            {job.status === 'running' && job.progress !== undefined && (
-              <Progress value={job.progress} className="mt-2 h-1" />
+            {job.status === 'running' && (
+              <Progress
+                value={job.total_steps ? (job.current_step / job.total_steps) * 100 : (job.current_epoch / job.total_epochs) * 100}
+                className="mt-2 h-1"
+              />
             )}
           </div>
           <div className="flex items-center gap-3">

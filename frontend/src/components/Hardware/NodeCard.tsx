@@ -46,7 +46,7 @@ export default function NodeCard({ node }: NodeCardProps) {
           <HardDrive className="h-4 w-4 text-muted-foreground" />
           <div className="text-sm">
             <p className="text-muted-foreground">RAM</p>
-            <p className="font-medium">{node.ram_gb.toFixed(0)} GB</p>
+            <p className="font-medium">{node.ram_gb?.toFixed(0) || '-'} GB</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -58,10 +58,10 @@ export default function NodeCard({ node }: NodeCardProps) {
         </div>
       </div>
 
-      {node.current_job_id && (
+      {node.status === 'busy' && (
         <div className="mt-4 flex items-center gap-2 p-3 bg-chart-2/10 rounded-lg">
           <Activity className="h-4 w-4 text-chart-2" />
-          <p className="text-sm text-chart-2">Running job #{node.current_job_id}</p>
+          <p className="text-sm text-chart-2">Currently running a training job</p>
         </div>
       )}
     </div>

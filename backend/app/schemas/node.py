@@ -33,7 +33,7 @@ class NodeHeartbeat(BaseModel):
     disk_gb: Optional[float] = Field(None, ge=0)
     gpu_utilization: Optional[float] = Field(None, ge=0, le=100)
     memory_utilization: Optional[float] = Field(None, ge=0, le=100)
-    metadata: Optional[dict[str, Any]] = None
+    extra_data: Optional[dict[str, Any]] = None
 
 
 class NodeResponse(BaseModel):
