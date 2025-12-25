@@ -1,210 +1,144 @@
 # TuneLLM
 
-An open-source platform for fine-tuning Large Language Models (LLMs) on your own hardware.
+**Open-source platform for fine-tuning Large Language Models on your own hardware.**
 
-## Overview
+Fine-tune LLaMA, Mistral, Falcon, and other open-source LLMs without sending your data to third-party APIs. TuneLLM gives you full control over your models and training data.
 
-TuneLLM provides a complete solution for fine-tuning open-source LLMs with support for:
+## What is TuneLLM?
 
-- **LoRA & QLoRA** - Efficient parameter-efficient fine-tuning
-- **RLHF** - DPO and PPO training methods
-- **Multi-GPU Support** - Local and cloud GPU training
-- **Web UI** - User-friendly interface for managing datasets, jobs, and models
-- **REST API** - Full API for automation and integration
-- **Model Serving** - Deploy fine-tuned models with optimized inference
+TuneLLM is a self-hosted platform that lets you:
 
-## Architecture
+- **Fine-tune LLMs** on your private data using LoRA, QLoRA, or DPO
+- **Manage training jobs** through an intuitive web interface
+- **Deploy models** as inference endpoints with one click
+- **Scale across GPUs** on local machines or cloud instances
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Web UI (React)                          │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Control Plane (FastAPI)                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐ │
-│  │   Auth   │  │  Jobs    │  │ Datasets │  │    Scheduler     │ │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        Node Agent                               │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │              Training Container (Docker)                 │   │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │   │
-│  │  │  LoRA   │  │  QLoRA  │  │   DPO   │  │   PPO   │     │   │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘     │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
+Perfect for teams who need to customize AI models while keeping data on-premise.
 
-## Features
+## Key Features
 
-### MVP (v0.1)
-- [x] Single-node GPU training support
-- [x] LoRA and QLoRA fine-tuning
-- [x] DPO training for RLHF
-- [x] Dataset upload and management
-- [x] Job monitoring with logs
-- [x] Model deployment and inference
-- [x] JWT authentication
-- [x] PostgreSQL metadata storage
+| Feature | Description |
+|---------|-------------|
+| Web Dashboard | Upload datasets, configure jobs, monitor training |
+| Multiple Training Methods | LoRA, QLoRA (4-bit), DPO, Full Fine-tuning |
+| Real-time Monitoring | Live logs, metrics, and progress tracking |
+| Model Registry | Track and version all trained models |
+| One-click Deployment | Deploy models as API endpoints |
+| REST API | Automate everything programmatically |
 
-### Planned
+## Current Status
+
+### Implemented (v0.1)
+
+- Single-node GPU training with Docker
+- LoRA and QLoRA fine-tuning
+- DPO training for alignment
+- Dataset management (JSONL, CSV, Parquet)
+- Job creation, monitoring, and cancellation
+- Real-time log streaming
+- JWT authentication
+- PostgreSQL + Redis backend
+- React web UI with Tailwind CSS
+- Node Agent for GPU workers
+
+### Roadmap
+
 - [ ] Multi-node distributed training
-- [ ] PPO-based RLHF
-- [ ] vLLM/TGI inference optimization
-- [ ] Kubernetes integration
-- [ ] Team/organization support
+- [ ] PPO-based RLHF with reward models
+- [ ] vLLM/TGI optimized inference
+- [ ] Kubernetes deployment
+- [ ] Team workspaces and RBAC
+- [ ] Experiment tracking integration (W&B, MLflow)
+- [ ] Model quantization (GPTQ, AWQ)
 
 ## Quick Start
 
-### Prerequisites
-- Docker and Docker Compose
-- NVIDIA GPU with CUDA support (for training)
-- Python 3.10+
-- Node.js 18+
+```bash
+# Clone and start
+git clone https://github.com/yourusername/TuneLLM.git
+cd TuneLLM/docker
+docker compose up -d
 
-### Development Setup
+# Access UI at http://localhost
+# API docs at http://localhost:8000/docs
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/TuneLLM.git
-   cd TuneLLM
-   ```
+## Supported Models
 
-2. **Copy environment file**
-   ```bash
-   cp docker/.env.example docker/.env
-   ```
+Works with any HuggingFace-compatible model:
 
-3. **Start services**
-   ```bash
-   make dev
-   ```
+- LLaMA 2/3 (7B, 13B, 70B)
+- Mistral / Mixtral
+- Falcon (7B, 40B)
+- Qwen, Phi, and more
 
-4. **Access the UI**
-   Open http://localhost:3000 in your browser
+## License
 
-### Running the Node Agent
+Apache License 2.0 - Free for commercial use.
 
-On your GPU machine:
+---
+
+# For Developers
+
+## Architecture Overview
+
+```
+Frontend (React) → Backend (FastAPI) → Node Agent → Training Container (PyTorch)
+                         ↓
+              PostgreSQL + Redis + File Storage
+```
+
+| Component | Tech Stack |
+|-----------|------------|
+| Backend | FastAPI, SQLAlchemy, PostgreSQL, JWT |
+| Frontend | React 18, TypeScript, Vite, Zustand |
+| Training | Transformers, PEFT, TRL, PyTorch |
+| Agent | Python, Docker SDK |
+
+## Local Development
 
 ```bash
-cd agent
-pip install -r requirements.txt
-python -m agent.main --server-url http://your-server:8000 --token YOUR_TOKEN
+# Start databases
+cd docker && docker compose up -d postgres redis
+
+# Backend (Terminal 1)
+cd backend
+pip install -r ../requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (Terminal 2)
+cd frontend
+npm install && npm run dev
 ```
 
 ## Project Structure
 
 ```
-TuneLLM/
-├── backend/          # FastAPI control plane
-├── agent/            # Node agent for GPU workers
-├── training/         # Training container
-├── inference/        # Inference server
-├── frontend/         # React web UI
-├── docker/           # Docker Compose configs
-├── docs/             # Documentation
-└── recipes/          # Community fine-tuning recipes
+backend/     # FastAPI control plane
+frontend/    # React web UI
+agent/       # GPU node agent
+training/    # Training container
+inference/   # Inference server
+docker/      # Docker Compose configs
 ```
 
-## Supported Models
+## Documentation
 
-- LLaMA 2 (7B, 13B, 70B)
-- LLaMA 3
-- Mistral (7B)
-- Falcon (7B, 40B)
-- GPT-J / GPT-NeoX
-- Qwen
-- Any HuggingFace-compatible model
+For complete technical documentation including:
+- Database schema and relationships
+- API endpoint reference
+- Authentication flow
+- Job execution lifecycle
+- Configuration options
+- Troubleshooting guide
 
-## Configuration
-
-Fine-tuning jobs are configured via YAML:
-
-```yaml
-run_name: "llama2_7b_lora"
-base_model: "meta-llama/Llama-2-7b-hf"
-
-method: "LoRA"
-lora:
-  r: 16
-  alpha: 32
-  target_modules: ["q_proj", "v_proj"]
-
-training:
-  epochs: 3
-  batch_size: 16
-  learning_rate: 2e-5
-  mixed_precision: "bf16"
-```
-
-## API Documentation
-
-See [docs/api-reference.md](docs/api-reference.md) for the full API documentation.
-
-### Quick Examples
-
-```bash
-# Login
-curl -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "user", "password": "pass"}'
-
-# Upload dataset
-curl -X POST http://localhost:8000/api/v1/datasets \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@data.jsonl" \
-  -F "name=my-dataset"
-
-# Start fine-tuning job
-curl -X POST http://localhost:8000/api/v1/finetune-jobs \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d @config.json
-```
-
-## Development
-
-### Backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Running Tests
-
-```bash
-make test
-```
+**See: [TuneLLMDeveloperDesign.md](TuneLLMDeveloperDesign.md)**
 
 ## Contributing
 
-See [CONTRIBUTING.md](docs/contributing.md) for guidelines.
+1. Fork the repo
+2. Create feature branch
+3. Make changes with tests
+4. Submit PR
 
-## License
-
-Apache License 2.0 - see [LICENSE](LICENSE)
-
-## Acknowledgments
-
-Built with:
-- [HuggingFace Transformers](https://huggingface.co/transformers/)
-- [PEFT](https://github.com/huggingface/peft)
-- [TRL](https://github.com/huggingface/trl)
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [React](https://react.dev/)
+See design doc for code style and conventions.
