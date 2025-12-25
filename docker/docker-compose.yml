@@ -1,0 +1,108 @@
+# TuneLLM Development Docker Compose
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: tunellm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tunellm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tunellm_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-tunellm}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tunellm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for caching and job queue)
+  redis:
+    image: redis:7-alpine
+    container_name: tunellm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: tunellm-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tunellm}:${POSTGRES_PASSWORD:-tunellm_dev}@postgres:5432/${POSTGRES_DB:-tunellm}
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:80}
+      - STORAGE_PATH=/data/storage
+    volumes:
+      - storage_data:/data/storage
+      - models_data:/data/models
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: tunellm-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Node Agent (optional, for local GPU testing)
+  agent:
+    build:
+      context: ../agent
+      dockerfile: Dockerfile
+    container_name: tunellm-agent
+    restart: unless-stopped
+    environment:
+      - SERVER_URL=http://backend:8000
+      - NODE_NAME=${NODE_NAME:-local-dev-node}
+      - API_KEY=${AGENT_API_KEY:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - models_data:/data/models
+    depends_on:
+      - backend
+    profiles:
+      - agent
+
+volumes:
+  postgres_data:
+  storage_data:
+  models_data:
+
+networks:
+  default:
+    name: tunellm-network

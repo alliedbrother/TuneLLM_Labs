@@ -1,0 +1,30 @@
+# PyTorch (CUDA)
+torch>=2.1.0
+
+# Transformers
+transformers>=4.36.0
+accelerate>=0.25.0
+safetensors>=0.4.1
+
+# Parameter-efficient fine-tuning
+peft>=0.7.1
+
+# Quantization
+bitsandbytes>=0.41.3
+
+# API server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Streaming
+sse-starlette>=1.8.2
+
+# Utilities
+pyyaml>=6.0.1
+pydantic>=2.5.3
+pydantic-settings>=2.1.0
+rich>=13.7.0
+
+# HTTP client
+httpx>=0.26.0
