@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authAPI, datasetsAPI, jobsAPI, modelsAPI, hardwareAPI } from '../services/api';
+import { authAPI, datasetsAPI, jobsAPI, modelsAPI, hardwareAPI, cloudAPI } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import type { LoginRequest, SignupRequest, DatasetCreate, JobCreate } from '../types';
+import type { LoginRequest, SignupRequest, DatasetCreate, JobCreate, CloudProvisionRequest } from '../types';
 
 // Auth hooks
 export function useLogin() {
@@ -233,5 +233,48 @@ export function useHardwareNode(id: number) {
     queryKey: ['hardwareNode', id],
     queryFn: () => hardwareAPI.get(id),
     enabled: !!id,
+  });
+}
+
+// Cloud GPU hooks
+export function useSearchCloudGpus(params?: {
+  min_gpu_ram_gb?: number;
+  gpu_type?: string;
+  max_dph?: number;
+}) {
+  return useQuery({
+    queryKey: ['cloudGpus', params],
+    queryFn: () => cloudAPI.searchGpus(params),
+    enabled: false, // Only fetch on demand
+  });
+}
+
+export function useProvisionCloud() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CloudProvisionRequest) => cloudAPI.provision(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hardwareNodes'] });
+      toast.success('Cloud GPU provisioned! It will appear online shortly.');
+    },
+    onError: () => {
+      toast.error('Failed to provision cloud GPU');
+    },
+  });
+}
+
+export function useDestroyCloud() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (nodeId: number) => cloudAPI.destroy(nodeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hardwareNodes'] });
+      toast.success('Cloud GPU instance destroyed');
+    },
+    onError: () => {
+      toast.error('Failed to destroy cloud instance');
+    },
   });
 }

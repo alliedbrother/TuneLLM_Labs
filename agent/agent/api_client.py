@@ -59,6 +59,12 @@ class APIClient:
         response.raise_for_status()
         return response.json()
 
+    async def get_node_info(self) -> dict:
+        """Get current node info by API key (resolve node_id)."""
+        response = await self.client.get("/api/v1/hardware/me")
+        response.raise_for_status()
+        return response.json()
+
     async def send_heartbeat(self, node_id: int, stats: dict) -> dict:
         """Send heartbeat with system stats."""
         response = await self.client.post(
@@ -69,10 +75,9 @@ class APIClient:
         return response.json()
 
     async def get_pending_jobs(self, node_id: int) -> list[dict]:
-        """Get jobs assigned to this node."""
+        """Get pending jobs assigned to this node."""
         response = await self.client.get(
-            "/api/v1/finetune-jobs",
-            params={"node_id": node_id, "status": "pending"},
+            f"/api/v1/finetune-jobs/pending/{node_id}",
         )
         response.raise_for_status()
         return response.json()
@@ -104,9 +109,31 @@ class APIClient:
             params={"level": level, "message": message},
         )
 
+    async def upload_model(self, job_id: int, zip_path: str) -> dict:
+        """Upload model adapter zip to backend."""
+        with open(zip_path, "rb") as f:
+            # Use httpx multipart upload
+            files = {"file": (f"job_{job_id}_adapter.zip", f, "application/zip")}
+            response = await self.client.post(
+                f"/api/v1/finetune-jobs/{job_id}/upload-model",
+                files=files,
+                timeout=120.0,  # Large files need more time
+            )
+        response.raise_for_status()
+        return response.json()
+
+    async def complete_job(self, job_id: int, artifact_path: str = "") -> dict:
+        """Mark a job as complete and create a TrainedModel record."""
+        response = await self.client.post(
+            f"/api/v1/finetune-jobs/{job_id}/complete",
+            params={"artifact_path": artifact_path},
+        )
+        response.raise_for_status()
+        return response.json()
+
     async def get_dataset(self, dataset_id: int) -> dict:
-        """Get dataset metadata."""
-        response = await self.client.get(f"/api/v1/datasets/{dataset_id}")
+        """Get dataset metadata (uses agent-accessible endpoint)."""
+        response = await self.client.get(f"/api/v1/datasets/{dataset_id}/info")
         response.raise_for_status()
         return response.json()
 

@@ -47,6 +47,24 @@ class Settings(BaseSettings):
     # HuggingFace
     hf_token: Optional[str] = None
 
+    # Vast.ai cloud GPU
+    vastai_api_key: Optional[str] = None
+    vastai_default_disk_gb: int = 50
+
+    # AI providers (for Q&A generation from PDFs)
+    anthropic_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+
+    # Data pipeline
+    allowed_data_paths: str = ""
+
+    @property
+    def allowed_data_paths_list(self) -> list[str]:
+        """Parse allowed data paths from comma-separated string."""
+        if not self.allowed_data_paths:
+            return []
+        return [p.strip() for p in self.allowed_data_paths.split(",")]
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""

@@ -56,13 +56,29 @@ class JobConfig(BaseModel):
     prompt_template: Optional[str] = None
     eval_steps: int = Field(default=100, ge=1)
 
+    # Evaluation flags
+    evaluate_before: bool = False
+    evaluate_after: bool = False
+
+
+class DistributedConfig(BaseModel):
+    """Configuration for distributed training across multiple nodes."""
+
+    strategy: str = Field(
+        default="auto",
+        pattern="^(auto|ddp|fsdp|deepspeed_zero2|deepspeed_zero3)$",
+    )
+    # auto: single-GPU if 1 node, DDP if multi-node same GPU count, DeepSpeed ZeRO-3 if heterogeneous
+
 
 class JobCreate(BaseModel):
     """Schema for creating a fine-tuning job."""
 
     name: str = Field(..., min_length=1, max_length=255)
     dataset_id: int
-    node_id: Optional[int] = None
+    node_id: Optional[int] = None  # single node (backward compatible)
+    node_ids: Optional[list[int]] = None  # multi-node distributed training
+    distributed: Optional[DistributedConfig] = None
     config: JobConfig
 
 
@@ -76,6 +92,10 @@ class JobStatusUpdate(BaseModel):
     train_loss: Optional[float] = None
     eval_loss: Optional[float] = None
     error_message: Optional[str] = None
+    baseline_metrics: Optional[dict[str, Any]] = None
+    final_metrics: Optional[dict[str, Any]] = None
+    phase: Optional[str] = None
+    loss_history: Optional[list[dict[str, Any]]] = None
 
 
 class JobLogResponse(BaseModel):
@@ -105,11 +125,33 @@ class JobResponse(BaseModel):
     train_loss: Optional[float]
     eval_loss: Optional[float]
     error_message: Optional[str]
+    baseline_metrics: Optional[dict[str, Any]] = None
+    final_metrics: Optional[dict[str, Any]] = None
+    phase: Optional[str] = None
+    distributed_config: Optional[dict[str, Any]] = None
+    loss_history: Optional[list[dict[str, Any]]] = None
+    node_assignments: Optional[list[dict[str, Any]]] = None
     owner_id: int
     dataset_id: int
     node_id: Optional[int]
     created_at: datetime
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
+
+    model_config = {"from_attributes": True}
+
+
+class NodeAssignmentResponse(BaseModel):
+    """Schema for a node's role in a distributed job."""
+
+    id: int
+    job_id: int
+    node_id: int
+    rank: int
+    is_master: bool
+    nccl_host: Optional[str]
+    nccl_port: int
+    status: str
+    gpu_ids: Optional[str]
 
     model_config = {"from_attributes": True}

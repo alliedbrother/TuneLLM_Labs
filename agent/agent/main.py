@@ -13,7 +13,6 @@ from rich.logging import RichHandler
 
 from agent.api_client import APIClient
 from agent.config import settings
-from agent.docker_runner import DockerRunner
 from agent.job_handler import JobHandler
 
 # Setup logging
@@ -82,8 +81,18 @@ class Agent:
         self.running = False
 
         self.api_client = APIClient(server_url, api_key)
-        self.docker_runner = DockerRunner()
-        self.job_handler = JobHandler(self.api_client, self.docker_runner)
+
+        # Initialize runner based on execution mode
+        if settings.execution_mode == "docker":
+            from agent.docker_runner import DockerRunner
+            self.runner = DockerRunner()
+            console.print(f"[dim]Execution mode: Docker ({settings.training_image})[/dim]")
+        else:
+            from agent.direct_runner import DirectRunner
+            self.runner = DirectRunner()
+            console.print(f"[dim]Execution mode: Direct ({settings.training_script})[/dim]")
+
+        self.job_handler = JobHandler(self.api_client, self.runner)
 
     async def start(self):
         """Start the agent."""
@@ -98,14 +107,18 @@ class Agent:
             result = await self.api_client.register_node(self.node_name)
             self.node_id = result["node_id"]
             self.api_key = result["api_key"]
+            # Reconnect with the new API key
+            await self.api_client.disconnect()
+            self.api_client = APIClient(self.server_url, self.api_key)
+            await self.api_client.connect()
             console.print(f"[green]Registered as node {self.node_id}[/green]")
             console.print(f"[yellow]API Key: {self.api_key}[/yellow]")
             console.print("[yellow]Save this API key for future runs![/yellow]")
         else:
-            # Get node ID from heartbeat
-            stats = get_system_stats()
-            # TODO: Get node ID from API
-            self.node_id = 1
+            # Resolve node_id from API key
+            node_info = await self.api_client.get_node_info()
+            self.node_id = node_info["id"]
+            console.print(f"[green]Resolved node ID: {self.node_id}[/green]")
 
         self.running = True
         console.print(f"[green]Agent started. Node ID: {self.node_id}[/green]")
@@ -123,31 +136,56 @@ class Agent:
         console.print("[yellow]Agent stopped[/yellow]")
 
     async def _heartbeat_loop(self):
-        """Send periodic heartbeats to the server."""
+        """Send periodic heartbeats. Exit after 30 consecutive failures (~15 min)
+        so the restart loop brings us back with a fresh connection."""
+        consecutive_failures = 0
         while self.running:
             try:
                 stats = get_system_stats()
                 await self.api_client.send_heartbeat(self.node_id, stats)
-                logger.debug(f"Heartbeat sent: {stats}")
+                consecutive_failures = 0
             except Exception as e:
-                logger.warning(f"Heartbeat failed: {e}")
+                consecutive_failures += 1
+                logger.warning(f"Heartbeat failed ({consecutive_failures}/30): {e}")
+
+                if consecutive_failures >= 5 and consecutive_failures % 5 == 0:
+                    logger.warning("Attempting reconnect...")
+                    try:
+                        await self.api_client.disconnect()
+                        await self.api_client.connect()
+                        logger.info("Reconnected successfully")
+                        consecutive_failures = 0
+                    except Exception:
+                        pass
+
+                if consecutive_failures >= 30:
+                    logger.error("30 consecutive heartbeat failures. Exiting for restart.")
+                    self.running = False
+                    import sys
+                    sys.exit(1)  # Restart loop will bring us back
 
             await asyncio.sleep(settings.heartbeat_interval)
 
     async def _job_poll_loop(self):
-        """Poll for new jobs to execute."""
+        """Poll for new jobs. Exponential backoff on failures."""
+        poll_interval = 5
+        consecutive_failures = 0
         while self.running:
             try:
                 if not self.job_handler.get_current_job():
                     jobs = await self.api_client.get_pending_jobs(self.node_id)
                     if jobs:
-                        job = jobs[0]  # Take first pending job
+                        job = jobs[0]
                         console.print(f"[cyan]Starting job: {job['name']}[/cyan]")
                         await self.job_handler.execute_job(job)
+                consecutive_failures = 0
+                poll_interval = 5  # Reset on success
             except Exception as e:
-                logger.warning(f"Job poll failed: {e}")
+                consecutive_failures += 1
+                poll_interval = min(poll_interval * 2, 60)  # Backoff: 5→10→20→40→60
+                logger.warning(f"Job poll failed ({consecutive_failures}): {e}")
 
-            await asyncio.sleep(5)  # Poll every 5 seconds
+            await asyncio.sleep(poll_interval)
 
 
 @click.command()

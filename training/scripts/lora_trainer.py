@@ -50,7 +50,7 @@ class LoRATrainer:
 
         # Training hyperparameters
         training_config = config.get("training", {})
-        self.num_epochs = training_config.get("num_epochs", 3)
+        self.num_epochs = training_config.get("num_epochs", training_config.get("epochs", 3))
         self.batch_size = training_config.get("batch_size", 4)
         self.gradient_accumulation_steps = training_config.get(
             "gradient_accumulation_steps", 4

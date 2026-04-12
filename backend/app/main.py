@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import close_db, init_db
-from app.routers import auth, datasets, endpoints, hardware, jobs, models
+from app.routers import auth, cloud, datasets, endpoints, hardware, jobs, models, pipeline
 
 
 @asynccontextmanager
@@ -49,6 +49,8 @@ def create_application() -> FastAPI:
     app.include_router(models.router, prefix=settings.api_prefix, tags=["Models"])
     app.include_router(hardware.router, prefix=settings.api_prefix, tags=["Hardware"])
     app.include_router(endpoints.router, prefix=settings.api_prefix, tags=["Endpoints"])
+    app.include_router(cloud.router, prefix=settings.api_prefix, tags=["Cloud GPU"])
+    app.include_router(pipeline.router, prefix=settings.api_prefix, tags=["Data Pipeline"])
 
     return app
 

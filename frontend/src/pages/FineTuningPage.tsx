@@ -15,12 +15,12 @@ import { useDatasets, useHardwareNodes, useCreateJob } from '../hooks/useApi';
 import toast from 'react-hot-toast';
 
 const baseModels = [
-  { id: 'llama-2-7b', name: 'Llama 2 7B', params: '7B', recommended: true },
-  { id: 'llama-2-13b', name: 'Llama 2 13B', params: '13B' },
-  { id: 'mistral-7b', name: 'Mistral 7B', params: '7B', recommended: true },
-  { id: 'falcon-7b', name: 'Falcon 7B', params: '7B' },
-  { id: 'gpt-j-6b', name: 'GPT-J 6B', params: '6B' },
-  { id: 'qwen-7b', name: 'Qwen 7B', params: '7B' },
+  { id: 'Qwen/Qwen2.5-1.5B-Instruct', name: 'Qwen 2.5 1.5B Instruct', params: '1.5B', recommended: true },
+  { id: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', name: 'TinyLlama 1.1B Chat', params: '1.1B', recommended: true },
+  { id: 'meta-llama/Llama-3.2-1B-Instruct', name: 'Llama 3.2 1B Instruct', params: '1B' },
+  { id: 'microsoft/Phi-3.5-mini-instruct', name: 'Phi 3.5 Mini', params: '3.8B' },
+  { id: 'mistralai/Mistral-7B-Instruct-v0.3', name: 'Mistral 7B Instruct', params: '7B' },
+  { id: 'meta-llama/Llama-2-7b-chat-hf', name: 'Llama 2 7B Chat', params: '7B' },
 ];
 
 const tuningMethods = [
@@ -40,7 +40,7 @@ export default function FineTuningPage() {
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<'lora' | 'qlora' | 'full' | 'dpo'>('lora');
   const [selectedDataset, setSelectedDataset] = useState('');
-  const [selectedNode, setSelectedNode] = useState('');
+  const [selectedNodes, setSelectedNodes] = useState<number[]>([]);
   const [loraRank, setLoraRank] = useState([16]);
   const [loraAlpha, setLoraAlpha] = useState([32]);
   const [learningRate, setLearningRate] = useState([0.0002]);
@@ -49,6 +49,8 @@ export default function FineTuningPage() {
   const [gradientAccum, setGradientAccum] = useState([4]);
   const [useGradientCheckpoint, setUseGradientCheckpoint] = useState(true);
   const [useFp16, setUseFp16] = useState(true);
+  const [evaluateBefore, setEvaluateBefore] = useState(true);
+  const [evaluateAfter, setEvaluateAfter] = useState(true);
 
   const handleLaunchJob = async () => {
     try {
@@ -64,8 +66,14 @@ export default function FineTuningPage() {
           batch_size: batchSize[0],
           learning_rate: learningRate[0],
           gradient_checkpointing: useGradientCheckpoint,
-          mixed_precision: useFp16 ? 'fp16' : 'no',
+          mixed_precision: useFp16 ? 'bf16' : 'no',
+          gradient_accumulation_steps: gradientAccum[0],
+          logging_steps: 5,
+          warmup_steps: 10,
+          max_seq_length: 2048,
         },
+        evaluate_before: evaluateBefore,
+        evaluate_after: evaluateAfter,
       };
 
       // Add LoRA/QLoRA config if applicable
@@ -85,7 +93,8 @@ export default function FineTuningPage() {
       await createJobMutation.mutateAsync({
         name: jobName_,
         dataset_id: parseInt(selectedDataset),
-        node_id: selectedNode ? parseInt(selectedNode) : undefined,
+        node_ids: selectedNodes.length > 0 ? selectedNodes : undefined,
+        distributed: selectedNodes.length > 1 ? { strategy: 'auto' } : undefined,
         config,
       });
       toast.success('Job created successfully!');
@@ -106,7 +115,7 @@ export default function FineTuningPage() {
         </div>
         <Button
           size="lg"
-          disabled={!selectedModel || !selectedDataset || !selectedNode || createJobMutation.isPending}
+          disabled={!selectedModel || !selectedDataset || createJobMutation.isPending}
           onClick={handleLaunchJob}
         >
           <Rocket className="mr-2 h-4 w-4" />
@@ -235,37 +244,76 @@ export default function FineTuningPage() {
                 <Cpu className="h-5 w-5 text-primary" />
                 Hardware
               </CardTitle>
-              <CardDescription>Select which GPU node to run on</CardDescription>
+              <CardDescription>
+                Select GPU node(s) to run on. Select multiple for distributed training.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2">
-                {onlineNodes.map((node) => (
-                  <button
-                    key={node.id}
-                    onClick={() => setSelectedNode(node.id.toString())}
-                    className={`rounded-lg border p-4 text-left transition-colors ${
-                      selectedNode === node.id.toString()
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium">{node.name}</p>
-                      <Badge variant="secondary" className="bg-success/10 text-success">
-                        {node.status}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {node.gpu_count}x {node.gpu_type || 'GPU'}
-                    </p>
-                  </button>
-                ))}
+                {onlineNodes.map((node) => {
+                  const isSelected = selectedNodes.includes(node.id);
+                  return (
+                    <button
+                      key={node.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedNodes(selectedNodes.filter((id) => id !== node.id));
+                        } else {
+                          setSelectedNodes([...selectedNodes, node.id]);
+                        }
+                      }}
+                      className={`rounded-lg border p-4 text-left transition-colors ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                            isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'
+                          }`}>
+                            {isSelected && (
+                              <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                          <p className="font-medium">{node.name}</p>
+                        </div>
+                        <Badge variant="secondary" className="bg-success/10 text-success">
+                          {node.status}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground ml-6">
+                        {node.gpu_count}x {node.gpu_type || 'GPU'}
+                        {node.gpu_memory_gb ? ` (${node.gpu_memory_gb}GB)` : ''}
+                      </p>
+                      {isSelected && selectedNodes.length > 1 && (
+                        <p className="mt-1 text-xs text-primary ml-6">
+                          {selectedNodes.indexOf(node.id) === 0 ? 'Master node (rank 0)' : `Worker node (rank ${selectedNodes.indexOf(node.id)})`}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
                 {onlineNodes.length === 0 && (
                   <p className="text-muted-foreground col-span-2 text-center py-4">
                     No online GPU nodes available
                   </p>
                 )}
               </div>
+              {selectedNodes.length > 1 && (
+                <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                  <p className="text-sm font-medium text-primary">
+                    Distributed Training — {selectedNodes.length} nodes selected
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Model weights will be sharded across nodes using DeepSpeed ZeRO-3.
+                    The first selected node is the master coordinator.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -336,6 +384,30 @@ export default function FineTuningPage() {
                   id="fp16"
                   checked={useFp16}
                   onChange={(e) => setUseFp16(e.target.checked)}
+                />
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="eval-before" className="flex-1">
+                  Baseline Evaluation
+                </Label>
+                <Switch
+                  id="eval-before"
+                  checked={evaluateBefore}
+                  onChange={(e) => setEvaluateBefore(e.target.checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="eval-after" className="flex-1">
+                  Post-training Evaluation
+                </Label>
+                <Switch
+                  id="eval-after"
+                  checked={evaluateAfter}
+                  onChange={(e) => setEvaluateAfter(e.target.checked)}
                 />
               </div>
             </CardContent>

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Activity, Box, Cpu, Database, Plus, ArrowUpRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Activity, Box, Cpu, Database, Plus, ArrowUpRight, CheckCircle2, Clock, AlertCircle, FileText, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,12 +47,26 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">Overview of your fine-tuning projects</p>
         </div>
-        <Button asChild>
-          <Link to="/fine-tuning">
-            <Plus className="mr-2 h-4 w-4" />
-            New Job
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/pipeline">
+              <FileText className="mr-2 h-4 w-4" />
+              Process PDFs
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/datasets">
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Data
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link to="/fine-tuning">
+              <Plus className="mr-2 h-4 w-4" />
+              New Job
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

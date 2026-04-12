@@ -254,3 +254,125 @@ def compute_bleu_metrics(predictions: List[str], references: List[str]) -> Dict[
     except ImportError:
         logger.warning("nltk not installed, skipping BLEU metrics")
         return {}
+
+
+def _normalize_text(text: str) -> str:
+    """Normalize text for comparison: lowercase, strip, remove punctuation."""
+    import re
+    import string
+
+    text = text.lower().strip()
+    # Remove punctuation
+    text = re.sub(f"[{re.escape(string.punctuation)}]", "", text)
+    # Normalize whitespace
+    text = " ".join(text.split())
+    return text
+
+
+def compute_f1(prediction: str, reference: str) -> float:
+    """Compute token-level F1 score (SQuAD-style).
+
+    Args:
+        prediction: Generated text
+        reference: Reference text
+
+    Returns:
+        F1 score between 0 and 1
+    """
+    pred_tokens = _normalize_text(prediction).split()
+    ref_tokens = _normalize_text(reference).split()
+
+    if not pred_tokens or not ref_tokens:
+        return float(pred_tokens == ref_tokens)
+
+    common = set(pred_tokens) & set(ref_tokens)
+    num_common = sum(min(pred_tokens.count(t), ref_tokens.count(t)) for t in common)
+
+    if num_common == 0:
+        return 0.0
+
+    precision = num_common / len(pred_tokens)
+    recall = num_common / len(ref_tokens)
+    return 2 * (precision * recall) / (precision + recall)
+
+
+def compute_exact_match(prediction: str, reference: str) -> float:
+    """Compute exact match after normalization.
+
+    Returns 1.0 if normalized texts match exactly, 0.0 otherwise.
+    """
+    return float(_normalize_text(prediction) == _normalize_text(reference))
+
+
+def compute_f1_batch(predictions: List[str], references: List[str]) -> Dict[str, float]:
+    """Compute average F1 and Exact Match over a batch."""
+    f1_scores = [compute_f1(p, r) for p, r in zip(predictions, references)]
+    em_scores = [compute_exact_match(p, r) for p, r in zip(predictions, references)]
+
+    return {
+        "f1": float(np.mean(f1_scores)) if f1_scores else 0.0,
+        "exact_match": float(np.mean(em_scores)) if em_scores else 0.0,
+    }
+
+
+def compute_bertscore(predictions: List[str], references: List[str]) -> Dict[str, float]:
+    """Compute BERTScore for semantic similarity.
+
+    Args:
+        predictions: List of generated texts
+        references: List of reference texts
+
+    Returns:
+        Dictionary with BERTScore precision, recall, F1
+    """
+    try:
+        from bert_score import score
+
+        P, R, F1 = score(
+            predictions, references,
+            lang="en",
+            model_type="distilbert-base-uncased",
+            verbose=False,
+        )
+        return {
+            "bertscore_precision": float(P.mean()),
+            "bertscore_recall": float(R.mean()),
+            "bertscore_f1": float(F1.mean()),
+        }
+    except ImportError:
+        logger.warning("bert-score not installed, skipping BERTScore")
+        return {}
+    except Exception as e:
+        logger.warning(f"BERTScore computation failed: {e}")
+        return {}
+
+
+def compute_all_qa_metrics(
+    predictions: List[str], references: List[str], include_bertscore: bool = False
+) -> Dict[str, float]:
+    """Compute all Q&A evaluation metrics.
+
+    Args:
+        predictions: List of generated answers
+        references: List of reference answers
+        include_bertscore: Whether to compute BERTScore (slower)
+
+    Returns:
+        Dictionary with all metrics
+    """
+    metrics: Dict[str, float] = {}
+
+    # Token-level F1 and Exact Match
+    metrics.update(compute_f1_batch(predictions, references))
+
+    # ROUGE
+    metrics.update(compute_rouge_metrics(predictions, references))
+
+    # BLEU
+    metrics.update(compute_bleu_metrics(predictions, references))
+
+    # BERTScore (optional, slower)
+    if include_bertscore:
+        metrics.update(compute_bertscore(predictions, references))
+
+    return metrics

@@ -7,6 +7,7 @@ const statusStyles: Record<NodeStatus, { bg: string; color: string; dot?: string
   offline: { bg: 'bg-muted', color: 'text-muted-foreground' },
   busy: { bg: 'bg-chart-2/10', color: 'text-chart-2', dot: 'bg-chart-2' },
   error: { bg: 'bg-destructive/10', color: 'text-destructive' },
+  provisioning: { bg: 'bg-primary/10', color: 'text-primary', dot: 'bg-primary animate-pulse' },
 };
 
 interface NodeCardProps {

@@ -21,10 +21,17 @@ class AgentSettings(BaseSettings):
     # Server connection
     server_url: str = "http://localhost:8000"
 
-    # Docker settings
+    # Execution mode: "direct" runs training script locally, "docker" uses containers
+    execution_mode: str = "direct"
+
+    # Docker settings (only used if execution_mode="docker")
     docker_socket: str = "unix:///var/run/docker.sock"
     training_image: str = "tunellm-training:latest"
     inference_image: str = "tunellm-inference:latest"
+
+    # Direct execution settings
+    training_script: str = "/workspace/tunellm-agent/train_unsloth.py"
+    python_executable: str = "python3"
 
     # Resource limits
     gpu_ids: str = "0"  # Comma-separated GPU IDs

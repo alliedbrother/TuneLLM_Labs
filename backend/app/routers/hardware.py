@@ -3,7 +3,7 @@
 import secrets
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,21 @@ from app.schemas.node import (
 from app.services.auth import get_current_user
 
 router = APIRouter()
+
+
+async def get_node_by_api_key(
+    x_api_key: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+) -> Node:
+    """Authenticate an agent by its API key and return the associated node."""
+    result = await db.execute(select(Node).where(Node.api_key == x_api_key))
+    node = result.scalar_one_or_none()
+    if not node:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+        )
+    return node
 
 
 @router.post("/hardware/register", response_model=NodeRegistrationResponse)
@@ -56,10 +71,14 @@ async def register_node(
 async def list_nodes(
     skip: int = 0,
     limit: int = 100,
+    cleanup: bool = True,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[Node]:
-    """List all hardware nodes for the current user."""
+    """List all hardware nodes for the current user.
+
+    Auto-cleans stale cloud nodes that haven't heartbeated in 3+ minutes.
+    """
     result = await db.execute(
         select(Node)
         .where((Node.owner_id == current_user.id) | (Node.is_shared == True))  # noqa: E712
@@ -67,7 +86,71 @@ async def list_nodes(
         .limit(limit)
         .order_by(Node.created_at.desc())
     )
-    return list(result.scalars().all())
+    nodes = list(result.scalars().all())
+
+    # Auto-cleanup stale cloud nodes
+    if cleanup:
+        from datetime import timedelta
+        cutoff = datetime.utcnow() - timedelta(minutes=3)
+        for node in nodes[:]:
+            if node.provider != "local" and node.status == NodeStatus.OFFLINE.value:
+                if not node.last_heartbeat or node.last_heartbeat < cutoff:
+                    try:
+                        # Clean up related assignments first
+                        from app.models.job import JobNodeAssignment
+                        await db.execute(
+                            select(JobNodeAssignment).where(JobNodeAssignment.node_id == node.id)
+                        )
+                        from sqlalchemy import delete as sa_delete
+                        await db.execute(
+                            sa_delete(JobNodeAssignment).where(JobNodeAssignment.node_id == node.id)
+                        )
+                        await db.delete(node)
+                        nodes.remove(node)
+                    except Exception:
+                        pass  # Skip if can't delete (has active jobs etc)
+
+    return nodes
+
+
+@router.get("/hardware/detect-local")
+async def detect_local_gpus(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Detect GPUs on the local machine running the backend."""
+    import subprocess
+    gpus = []
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total,utilization.gpu,driver_version",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            for i, line in enumerate(result.stdout.strip().split("\n")):
+                parts = [p.strip() for p in line.split(",")]
+                if len(parts) >= 3:
+                    gpus.append({
+                        "index": i,
+                        "name": parts[0],
+                        "memory_gb": round(float(parts[1]) / 1024, 1),
+                        "utilization": float(parts[2]),
+                        "driver": parts[3] if len(parts) > 3 else "unknown",
+                    })
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        return {"gpus": [], "error": str(e)}
+
+    return {"gpus": gpus, "count": len(gpus)}
+
+
+@router.get("/hardware/me", response_model=NodeResponse)
+async def get_current_node(
+    node: Node = Depends(get_node_by_api_key),
+) -> Node:
+    """Get the current node info (called by agent to resolve its node_id)."""
+    return node
 
 
 @router.get("/hardware/{node_id}", response_model=NodeResponse)
@@ -156,16 +239,16 @@ async def node_heartbeat(
     node_id: int,
     heartbeat: NodeHeartbeat,
     db: AsyncSession = Depends(get_db),
+    agent_node: Node = Depends(get_node_by_api_key),
 ) -> Node:
     """Receive heartbeat from a node (called by agent)."""
-    # TODO: Verify API key instead of node_id
-    result = await db.execute(select(Node).where(Node.id == node_id))
-    node = result.scalar_one_or_none()
-    if not node:
+    if agent_node.id != node_id:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Node not found",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API key does not match node_id",
         )
+
+    node = agent_node
 
     # Update node info
     node.status = NodeStatus.ONLINE.value
@@ -178,8 +261,8 @@ async def node_heartbeat(
     node.disk_gb = heartbeat.disk_gb
     node.gpu_utilization = heartbeat.gpu_utilization
     node.memory_utilization = heartbeat.memory_utilization
-    if heartbeat.metadata:
-        node.metadata = heartbeat.metadata
+    if heartbeat.extra_data:
+        node.extra_data = heartbeat.extra_data
 
     await db.flush()
     await db.refresh(node)

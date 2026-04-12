@@ -15,6 +15,7 @@ import JobDetailPage from './pages/JobDetailPage';
 import ModelsPage from './pages/ModelsPage';
 import HardwarePage from './pages/HardwarePage';
 import PlaygroundPage from './pages/PlaygroundPage';
+import PipelinePage from './pages/PipelinePage';
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,7 @@ function App() {
         <Route path="jobs/:jobId" element={<JobDetailPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="hardware" element={<HardwarePage />} />
+        <Route path="pipeline" element={<PipelinePage />} />
         <Route path="playground" element={<PlaygroundPage />} />
       </Route>
 

@@ -1,95 +1,93 @@
-"""Job scheduler service."""
+"""Job scheduler service.
+
+The architecture is pull-based: agents poll for pending jobs assigned to their node.
+schedule_job() simply ensures the job has node_id set and status='pending' in the DB.
+The agent's poll loop will then find the job and execute it.
+"""
 
 import asyncio
 import logging
-from typing import Optional
 
-import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.job import FineTuneJob, JobStatus
+from app.models.node import Node, NodeStatus
 
 logger = logging.getLogger(__name__)
 
-# In-memory job queue (replace with Redis or similar in production)
-job_queue: asyncio.Queue = asyncio.Queue()
 
+async def schedule_job(job_id: int, node_id: int, db: AsyncSession) -> bool:
+    """Schedule a job to run on a specific node.
 
-async def schedule_job(job_id: int, node_id: int) -> bool:
-    """Schedule a job to run on a specific node."""
-    logger.info(f"Scheduling job {job_id} on node {node_id}")
+    Sets the job's node_id and status to 'pending' so the agent can pick it up.
+    """
+    result = await db.execute(select(FineTuneJob).where(FineTuneJob.id == job_id))
+    job = result.scalar_one_or_none()
+    if not job:
+        logger.error(f"Job {job_id} not found for scheduling")
+        return False
 
-    # Add to queue
-    await job_queue.put({"job_id": job_id, "node_id": node_id})
+    job.node_id = node_id
+    job.status = JobStatus.PENDING.value
 
-    # TODO: Send job to node agent via WebSocket or HTTP
-    # For now, just log and return success
+    logger.info(f"Scheduled job {job_id} on node {node_id} (status=pending)")
     return True
 
 
-async def cancel_job_on_node(job_id: int, node_host: str, node_port: int) -> bool:
-    """Cancel a running job on a node."""
+async def find_available_node(owner_id: int, db: AsyncSession) -> int | None:
+    """Find an available online node for the given user."""
+    result = await db.execute(
+        select(Node).where(
+            (Node.owner_id == owner_id) | (Node.is_shared == True),  # noqa: E712
+            Node.status == NodeStatus.ONLINE.value,
+        )
+    )
+    node = result.scalar_one_or_none()
+    return node.id if node else None
+
+
+async def schedule_cloud_teardown(
+    node_id: int, delay_seconds: int = 300
+) -> None:
+    """Schedule auto-teardown of a cloud GPU instance after idle timeout.
+
+    Called after a job completes on a vastai node. Waits for the delay,
+    then checks if the node has any pending/running jobs. If idle, destroys it.
+    """
+    await asyncio.sleep(delay_seconds)
+
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                f"http://{node_host}:{node_port}/jobs/{job_id}/cancel",
+        from app.database import async_session_maker
+
+        async with async_session_maker() as db:
+            result = await db.execute(select(Node).where(Node.id == node_id))
+            node = result.scalar_one_or_none()
+
+            if not node or node.provider != "vastai":
+                return
+
+            # Check for active jobs
+            active = await db.execute(
+                select(FineTuneJob).where(
+                    FineTuneJob.node_id == node_id,
+                    FineTuneJob.status.in_(["pending", "running"]),
+                )
             )
-            return response.status_code == 200
+            if active.scalar_one_or_none():
+                logger.info(f"Node {node_id} has active jobs, skipping teardown")
+                return
+
+            # Destroy the cloud instance
+            from app.config import settings
+            from app.services.vastai_provider import VastAIProvider
+
+            if settings.vastai_api_key and node.provider_instance_id:
+                provider = VastAIProvider(settings.vastai_api_key)
+                destroyed = await provider.destroy_instance(node.provider_instance_id)
+                if destroyed:
+                    node.status = NodeStatus.OFFLINE.value
+                    await db.commit()
+                    logger.info(f"Auto-teardown: destroyed cloud node {node_id}")
     except Exception as e:
-        logger.error(f"Failed to cancel job {job_id}: {e}")
-        return False
-
-
-async def get_next_job() -> Optional[dict]:
-    """Get the next job from the queue."""
-    try:
-        return job_queue.get_nowait()
-    except asyncio.QueueEmpty:
-        return None
-
-
-class JobScheduler:
-    """Simple job scheduler that dispatches jobs to available nodes."""
-
-    def __init__(self):
-        self.running = False
-        self._task: Optional[asyncio.Task] = None
-
-    async def start(self):
-        """Start the scheduler background task."""
-        if self.running:
-            return
-        self.running = True
-        self._task = asyncio.create_task(self._run())
-        logger.info("Job scheduler started")
-
-    async def stop(self):
-        """Stop the scheduler."""
-        self.running = False
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-        logger.info("Job scheduler stopped")
-
-    async def _run(self):
-        """Main scheduler loop."""
-        while self.running:
-            try:
-                job = await get_next_job()
-                if job:
-                    await self._dispatch_job(job)
-                await asyncio.sleep(1)  # Poll interval
-            except Exception as e:
-                logger.error(f"Scheduler error: {e}")
-                await asyncio.sleep(5)
-
-    async def _dispatch_job(self, job: dict):
-        """Dispatch a job to its assigned node."""
-        job_id = job["job_id"]
-        node_id = job["node_id"]
-        logger.info(f"Dispatching job {job_id} to node {node_id}")
-        # TODO: Implement actual job dispatch to node agent
-
-
-# Global scheduler instance
-scheduler = JobScheduler()
+        logger.error(f"Auto-teardown failed for node {node_id}: {e}")

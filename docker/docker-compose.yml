@@ -46,9 +46,19 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:80}
       - STORAGE_PATH=/data/storage
+      - VASTAI_API_KEY=${VASTAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - DEBUG=true
     volumes:
       - storage_data:/data/storage
       - models_data:/data/models
+      - ~/.ssh:/root/.ssh
+      - ~/.tunellm:/root/.tunellm
+      - ~/Documents:/host/Documents:ro
+      - ~/Desktop:/host/Desktop:ro
+      - ~/Downloads:/host/Downloads:ro
     ports:
       - "8000:8000"
     depends_on:

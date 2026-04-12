@@ -125,3 +125,7 @@ TuneLLM_MVP.xlsx
 
 
 
+
+# Claude Code
+.claude/
+docker/.env

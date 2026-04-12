@@ -65,6 +65,10 @@ export interface FineTuneJob {
   train_loss?: number;
   eval_loss?: number;
   error_message?: string;
+  baseline_metrics?: Record<string, number>;
+  final_metrics?: Record<string, number>;
+  phase?: string;
+  distributed_config?: Record<string, unknown>;
   node_id?: number;
   owner_id: number;
   created_at: string;
@@ -97,6 +101,11 @@ export interface TrainingConfig {
   warmup_ratio?: number;
   mixed_precision?: 'no' | 'fp16' | 'bf16';
   gradient_checkpointing?: boolean;
+  gradient_accumulation_steps?: number;
+  max_seq_length?: number;
+  warmup_steps?: number;
+  logging_steps?: number;
+  weight_decay?: number;
   seed?: number;
 }
 
@@ -111,12 +120,20 @@ export interface JobConfig {
   training?: TrainingConfig;
   prompt_template?: string;
   eval_steps?: number;
+  evaluate_before?: boolean;
+  evaluate_after?: boolean;
+}
+
+export interface DistributedConfig {
+  strategy: 'auto' | 'ddp' | 'fsdp' | 'deepspeed_zero2' | 'deepspeed_zero3';
 }
 
 export interface JobCreate {
   name: string;
   dataset_id: number;
   node_id?: number;
+  node_ids?: number[];
+  distributed?: DistributedConfig;
   config: JobConfig;
 }
 
@@ -149,7 +166,7 @@ export interface TrainedModel {
 }
 
 // Hardware/Node types
-export type NodeStatus = 'online' | 'offline' | 'busy' | 'error';
+export type NodeStatus = 'online' | 'offline' | 'busy' | 'error' | 'provisioning';
 
 export interface HardwareNode {
   id: number;
@@ -165,10 +182,45 @@ export interface HardwareNode {
   port?: number;
   gpu_utilization?: number;
   memory_utilization?: number;
+  provider: string;
+  provider_instance_id?: string;
+  hourly_cost?: number;
   owner_id: number;
   is_shared: boolean;
   created_at: string;
   last_heartbeat?: string;
+}
+
+// Cloud GPU types
+export interface CloudGpuOffer {
+  id: number;
+  gpu_name: string;
+  num_gpus: number;
+  gpu_ram_gb: number;
+  cpu_cores: number;
+  ram_gb: number;
+  disk_gb: number;
+  dph_total: number;
+  reliability: number;
+  inet_down: number;
+  inet_up: number;
+  cuda_max_good?: number;
+  machine_id: number;
+  verified: boolean;
+}
+
+export interface CloudProvisionRequest {
+  offer_id: number;
+  name: string;
+  disk_gb?: number;
+  docker_image?: string;
+}
+
+export interface CloudProvisionResponse {
+  node_id: number;
+  provider_instance_id: string;
+  status: string;
+  message: string;
 }
 
 // Pagination

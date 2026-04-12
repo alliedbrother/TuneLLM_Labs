@@ -3,7 +3,7 @@ torch>=2.1.0
 torchvision>=0.16.0
 
 # Transformers ecosystem
-transformers>=4.36.0
+transformers>=4.37.0
 datasets>=2.16.0
 tokenizers>=0.15.0
 accelerate>=0.25.0
@@ -22,6 +22,7 @@ bitsandbytes>=0.41.3
 evaluate>=0.4.1
 rouge-score>=0.1.2
 nltk>=3.8.1
+bert-score>=0.3.13
 
 # Configuration
 pyyaml>=6.0.1

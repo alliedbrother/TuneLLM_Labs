@@ -52,6 +52,9 @@ class NodeResponse(BaseModel):
     port: Optional[int]
     gpu_utilization: Optional[float]
     memory_utilization: Optional[float]
+    provider: str = "local"
+    provider_instance_id: Optional[str] = None
+    hourly_cost: Optional[float] = None
     owner_id: int
     is_shared: bool
     created_at: datetime
@@ -66,3 +69,40 @@ class NodeRegistrationResponse(BaseModel):
     node_id: int
     api_key: str
     message: str = "Node registered successfully"
+
+
+class CloudGpuOffer(BaseModel):
+    """Schema for a Vast.ai GPU offer."""
+
+    id: int
+    gpu_name: str
+    num_gpus: int
+    gpu_ram_gb: float
+    cpu_cores: float
+    ram_gb: float
+    disk_gb: float
+    dph_total: float  # dollars per hour
+    reliability: float
+    inet_down: float
+    inet_up: float
+    cuda_max_good: Optional[float] = None
+    machine_id: int
+    verified: bool = False
+
+
+class CloudProvisionRequest(BaseModel):
+    """Schema for provisioning a cloud GPU instance."""
+
+    offer_id: int
+    name: str = Field(..., min_length=1, max_length=255)
+    disk_gb: int = Field(default=50, ge=10, le=1000)
+    docker_image: str = "pytorch/pytorch:2.1.0-cuda12.1-cudnn8-devel"
+
+
+class CloudProvisionResponse(BaseModel):
+    """Response after provisioning a cloud instance."""
+
+    node_id: int
+    provider_instance_id: str
+    status: str
+    message: str

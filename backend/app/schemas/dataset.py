@@ -31,6 +31,8 @@ class DatasetResponse(BaseModel):
     file_size: int
     format: str
     num_samples: Optional[int]
+    parent_dataset_id: Optional[int] = None
+    split_type: Optional[str] = None
     owner_id: int
     created_at: datetime
     updated_at: datetime

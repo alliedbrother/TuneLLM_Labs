@@ -1,0 +1,46 @@
+# TuneLLM Training Image — GPU-optimized with Unsloth
+# Build: docker build -f Dockerfile.gpu -t tunellm/training:cuda12.4 .
+# For CUDA 12.1: change base image to pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel
+
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python training dependencies (pinned versions proven on RTX 3060)
+RUN pip install --no-cache-dir \
+    unsloth \
+    bitsandbytes>=0.46.1 \
+    rouge-score \
+    datasets \
+    accelerate \
+    trl \
+    peft \
+    httpx \
+    psutil \
+    rich \
+    click \
+    pydantic-settings \
+    python-dotenv \
+    && pip uninstall -y torchao 2>/dev/null || true
+
+# Copy training script
+COPY scripts/train_unsloth.py /app/train_unsloth.py
+
+# Copy agent code
+COPY ../agent/agent /app/agent
+
+# Default environment
+ENV TUNELLM_AGENT_EXECUTION_MODE=direct
+ENV TUNELLM_AGENT_TRAINING_SCRIPT=/app/train_unsloth.py
+ENV TUNELLM_AGENT_DATA_PATH=/workspace/data
+ENV TUNELLM_AGENT_MODEL_PATH=/workspace/models
+
+# Verify installation
+RUN python -c "from unsloth import FastLanguageModel; print('Unsloth OK')"
+
+CMD ["python", "-m", "agent.main"]

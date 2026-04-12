@@ -1,6 +1,7 @@
 """Docker container runner for training jobs."""
 
 import asyncio
+import json
 import logging
 from typing import Any, Callable, Optional
 
@@ -35,21 +36,38 @@ class DockerRunner:
         config: dict[str, Any],
         gpu_ids: Optional[list[int]] = None,
         on_log: Optional[Callable[[str], None]] = None,
+        distributed: Optional[dict[str, Any]] = None,
     ) -> Container:
-        """Run a training job in a Docker container."""
+        """Run a training job in a Docker container.
+
+        Args:
+            distributed: If set, contains rank, world_size, master_addr, master_port,
+                         strategy for multi-node training.
+        """
         image = settings.training_image
         gpu_ids = gpu_ids or settings.gpu_list
 
         # Build environment variables
         env = {
             "JOB_ID": str(job_id),
-            "JOB_CONFIG": str(config),
+            "JOB_CONFIG": json.dumps(config),
             "CUDA_VISIBLE_DEVICES": ",".join(map(str, gpu_ids)),
         }
 
         # Add HuggingFace token if available
         if config.get("hf_token"):
             env["HF_TOKEN"] = config["hf_token"]
+
+        # Add distributed training env vars
+        if distributed:
+            env.update({
+                "MASTER_ADDR": str(distributed.get("master_addr", "localhost")),
+                "MASTER_PORT": str(distributed.get("master_port", 29500)),
+                "WORLD_SIZE": str(distributed.get("world_size", 1)),
+                "RANK": str(distributed.get("rank", 0)),
+                "LOCAL_RANK": "0",
+                "DISTRIBUTED_STRATEGY": distributed.get("strategy", "deepspeed_zero3"),
+            })
 
         # Build volume mounts
         volumes = {
@@ -71,10 +89,25 @@ class DockerRunner:
         logger.info(f"Starting training container for job {job_id}")
         logger.debug(f"Image: {image}, GPUs: {gpu_ids}")
 
+        # Build command — use torchrun for distributed, plain python for single-node
+        if distributed and distributed.get("world_size", 1) > 1:
+            command = [
+                "torchrun",
+                f"--nproc_per_node={len(gpu_ids)}",
+                f"--nnodes={distributed['world_size']}",
+                f"--node_rank={distributed['rank']}",
+                f"--master_addr={distributed.get('master_addr', 'localhost')}",
+                f"--master_port={distributed.get('master_port', 29500)}",
+                "scripts/train.py",
+                "--config", "env",
+            ]
+        else:
+            command = ["python", "scripts/train.py", "--config", "env"]
+
         try:
             container = self.client.containers.run(
                 image=image,
-                command=["python", "train.py", "--config", "/tmp/config.yaml"],
+                command=command,
                 environment=env,
                 volumes=volumes,
                 device_requests=device_requests,

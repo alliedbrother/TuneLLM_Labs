@@ -13,6 +13,9 @@ import type {
   TrainedModel,
   HardwareNode,
   PaginatedResponse,
+  CloudGpuOffer,
+  CloudProvisionRequest,
+  CloudProvisionResponse,
 } from '../types';
 
 // Create axios instance
@@ -211,6 +214,35 @@ export const hardwareAPI = {
 
   get: async (id: number): Promise<HardwareNode> => {
     const response = await api.get<HardwareNode>(`/hardware/${id}`);
+    return response.data;
+  },
+};
+
+// Cloud GPU API
+export const cloudAPI = {
+  searchGpus: async (params?: {
+    min_gpu_ram_gb?: number;
+    gpu_type?: string;
+    num_gpus?: number;
+    max_dph?: number;
+    limit?: number;
+  }): Promise<CloudGpuOffer[]> => {
+    const response = await api.post<CloudGpuOffer[]>('/cloud/search-gpus', null, { params });
+    return response.data;
+  },
+
+  provision: async (data: CloudProvisionRequest): Promise<CloudProvisionResponse> => {
+    const response = await api.post<CloudProvisionResponse>('/cloud/provision', data);
+    return response.data;
+  },
+
+  getStatus: async (nodeId: number): Promise<Record<string, unknown>> => {
+    const response = await api.get(`/cloud/${nodeId}/status`);
+    return response.data;
+  },
+
+  destroy: async (nodeId: number): Promise<Record<string, unknown>> => {
+    const response = await api.delete(`/cloud/${nodeId}`);
     return response.data;
   },
 };
